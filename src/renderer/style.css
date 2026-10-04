@@ -1,0 +1,27 @@
+/* ตัวแปรฟอนต์/สี ถูกรวมไว้ที่นี่ที่เดียว (เปรียบเทียบฟอนต์ได้ที่ scripts/font-lab.mjs + docs/evidence/fonts/) */
+:root {
+  /* ผลการเปรียบเทียบ: 'Noto Sans Mono' (monospace ละติน) + 'Noto Sans Thai' (ไทย) ชนะ
+     ทั้งความคมของสระ/วรรณยุกต์และความสม่ำเสมอของผลลัพธ์ เพราะเป็นฟอนต์ที่ฝังมาทั้งคู่
+     สลับไปใช้ตัวอื่นได้ เช่น 'Cascadia Mono', 'Sarabun', monospace หรือ 'Cascadia Mono', 'IBM Plex Sans Thai', monospace */
+  --terminal-font-family: 'Noto Sans Mono', 'Noto Sans Thai', monospace;
+  --terminal-font-size: 15px;
+  --terminal-bg: #0c0c0c;
+  --terminal-fg: #e6e6e6;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--terminal-bg);
+  color: var(--terminal-fg);
+}
+
+#terminal {
+  width: 100%;
+  height: 100%;
+  padding: 4px;
+  box-sizing: border-box;
+}

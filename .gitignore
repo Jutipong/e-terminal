@@ -1,0 +1,11 @@
+# dependencies
+node_modules/
+
+# build output (สร้างใหม่ได้ด้วย npm start)
+dist/
+
+# state ของเครื่องมือ pi ไม่ใช่ซอร์สโค้ด
+.pi/
+
+# logs / ไฟล์ชั่วคราว
+*.log

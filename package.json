@@ -1,0 +1,29 @@
+{
+  "name": "poc-terminal",
+  "version": "0.1.0",
+  "private": true,
+  "description": "POC: Electron built-in terminal with correct Thai rendering (node-pty + xterm.js)",
+  "main": "src/main/main.js",
+  "scripts": {
+    "build:renderer": "vite build",
+    "start": "npm run build:renderer && electron .",
+    "check:width-table": "node scripts/check-xterm-width-table.mjs",
+    "check:thai-width": "node scripts/check-thai-width.mjs",
+    "check:fonts": "node scripts/font-lab.mjs",
+    "evidence": "npm run check:width-table && node scripts/gen-thai-test.mjs && node scripts/check-pty.mjs && node scripts/check-thai-width.mjs && node scripts/check-resize.mjs && node scripts/check-opencode-run.mjs && node scripts/check-opencode-tui.mjs && node scripts/check-pi-print.mjs && node scripts/check-pi-tui.mjs"
+  },
+  "devDependencies": {
+    "electron": "^44.5.1",
+    "vite": "^8.3.2"
+  },
+  "dependencies": {
+    "@fontsource/ibm-plex-sans-thai": "^5.3.0",
+    "@fontsource/noto-sans-mono": "^5.3.0",
+    "@fontsource/noto-sans-thai": "^5.3.0",
+    "@fontsource/sarabun": "^5.3.0",
+    "@xterm/addon-canvas": "^0.7.0",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
+    "node-pty": "^1.1.0"
+  }
+}

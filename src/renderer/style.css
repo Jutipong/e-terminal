@@ -1,9 +1,11 @@
 /* ตัวแปรฟอนต์/สี ถูกรวมไว้ที่นี่ที่เดียว (เปรียบเทียบฟอนต์ได้ที่ scripts/font-lab.mjs + docs/evidence/fonts/) */
 :root {
-  /* ผลการเปรียบเทียบ: 'Noto Sans Mono' (monospace ละติน) + 'Noto Sans Thai' (ไทย) ชนะ
-     ทั้งความคมของสระ/วรรณยุกต์และความสม่ำเสมอของผลลัพธ์ เพราะเป็นฟอนต์ที่ฝังมาทั้งคู่
-     สลับไปใช้ตัวอื่นได้ เช่น 'Cascadia Mono', 'Sarabun', monospace หรือ 'Cascadia Mono', 'IBM Plex Sans Thai', monospace */
-  --terminal-font-family: 'Noto Sans Mono', 'Noto Sans Thai', monospace;
+  /* ผลการเปรียบเทียบ (ดู shots/ ของ poc-terminal-grill): ฟอนต์ระบบของ Windows อ่านไทยได้ดีกว่า
+     'Cascadia Mono' ครบทั้ง box-drawing และ ASCII art ส่วน 'Leelawadee UI' คือฟอนต์ไทยที่ Windows
+     มาพร้อมเครื่อง ไทยเป็นฟอนต์ proportional จึงไม่มีฟอนต์ monospace ไหนครอบได้ ปล่อยให้ Chromium
+     fallback ต่ออัตโนมัติตาม codepoint เหมือนที่ทำใน poc-terminal-grill
+     (ผลต่างกันตามเครื่อง — ถ้าเครื่องไม่มี Leelawadee UI ให้เปลี่ยนเป็น 'Noto Sans Thai' หรือ 'Tahoma') */
+  --terminal-font-family: 'Cascadia Mono', 'Leelawadee UI', monospace;
   --terminal-font-size: 15px;
   --terminal-bg: #0c0c0c;
   --terminal-fg: #e6e6e6;
@@ -19,9 +21,43 @@ body {
   color: var(--terminal-fg);
 }
 
+/* ตัวเลือกเปิด CLI ต้องไม่กินพื้นที่ของ terminal (FitAddon วัดจากความสูงของ #terminal)
+   จึงลอยทับอยู่เหนือหน้าจอแทน */
+#target {
+  position: fixed;
+  top: 6px;
+  right: 8px;
+  z-index: 10;
+  font: 12px/1.6 system-ui, sans-serif;
+  color: var(--terminal-fg);
+  background: #1e1e1e;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
 #terminal {
   width: 100%;
   height: 100%;
-  padding: 4px;
+}
+
+/* padding ต้องอยู่ที่ .xterm ไม่ใช่ที่ #terminal: FitAddon อ่านความสูงของ parent
+   แล้วหัก padding ของ .xterm ออก ถ้า padding อยู่ที่ container เองจะถูกนับซ้ำ
+   ผลคือแถวสุดท้ายของหน้าจอถูกตัด */
+#terminal .xterm {
+  height: 100%;
+  padding: 6px 8px;
   box-sizing: border-box;
+}
+
+/* พอ TUI (pi / opencode) ทำให้ buffer เลื่อนได้ scrollbar ของ Chromium จะโผล่เป็นแถบขาว
+   xterm วาด affordance ของตัวเองอยู่แล้ว จึงซ่อนได้เลย */
+#terminal .xterm-viewport {
+  background: transparent !important;
+  scrollbar-width: none;
+}
+
+#terminal .xterm-viewport::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }

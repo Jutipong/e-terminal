@@ -8,9 +8,29 @@ let mainWindow = null;
 /** @type {import('node-pty').IPty | null} */
 let ptyProcess = null;
 
+/**
+ * ConPTY เปิด console มาด้วย codepage 437 ซึ่งทำให้ภาษาไทยกลายเป็น mojibake
+ * (`echo สวัสดี` -> `*'1*5`) ทุก target จึงต้องตั้ง UTF-8 ให้ตัวเองก่อนรับอินพุตหรือพิมพ์ผล
+ * (ทำมาจาก src/main/main.js ของ poc-terminal-grill)
+ */
+const TARGETS = {
+  shell: {
+    file: 'powershell.exe',
+    args: [],
+  },
+  pi: {
+    file: 'cmd.exe',
+    args: ['/c', 'chcp 65001 >nul & pi'],
+  },
+  opencode: {
+    file: 'cmd.exe',
+    args: ['/c', 'chcp 65001 >nul & opencode'],
+  },
+};
+
 function defaultShell() {
   if (process.platform === 'win32') {
-    return { file: 'powershell.exe', args: [] };
+    return TARGETS.shell;
   }
   return { file: process.env.SHELL || '/bin/bash', args: ['-l'] };
 }
@@ -54,29 +74,36 @@ function disposePty() {
   }
 }
 
-function spawnPty({ cols, rows, cwd }) {
+function spawnPty({ cols, rows, cwd, target }) {
   disposePty();
 
-  const { file, args } = defaultShell();
+  const { file, args } = TARGETS[target] ?? defaultShell();
   // TERM ต้องบอก TUI ว่าเรารองรับสี 256/truecolor ไม่งั้น opencode/pi จะลดระดับ output
   const env = { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' };
 
-  console.log(`[pty] spawn ${file} cols=${cols} rows=${rows} cwd=${cwd}`);
-  ptyProcess = pty.spawn(file, args, {
+  console.log(`[pty] spawn ${file} ${args.join(' ')} cols=${cols} rows=${rows} cwd=${cwd}`);
+  const child = pty.spawn(file, args, {
     name: 'xterm-256color',
     cols,
     rows,
     cwd,
     env,
-    useConpty: process.platform === 'win32',
+    // ไม่ใช้ ConPTY ตัวเก่า: kill() ของมัน fork helper ที่เรียก AttachConsole แล้วค้าง 5 วินาที
+    useConptyDll: process.platform === 'win32',
   });
+  ptyProcess = child;
 
-  ptyProcess.onData((data) => {
+  child.onData((data) => {
     sendToRenderer('terminal:data', data);
   });
 
-  ptyProcess.onExit(({ exitCode, signal }) => {
+  child.onExit(({ exitCode, signal }) => {
     console.log(`[pty] exit code=${exitCode} signal=${signal}`);
+    // โปรเซสเก่ามักออกช้ากว่าตัวที่เพิ่งสปอว์์แทนมัน ถ้าเคลียร์ ptyProcess
+    // ทุกครั้งที่มี exit ตัวใหม่จะหลุดจากตัวแปรและรับ input ไม่ได้
+    if (ptyProcess !== child) {
+      return;
+    }
     ptyProcess = null;
     sendToRenderer('terminal:exit', { exitCode, signal });
   });
@@ -87,6 +114,7 @@ ipcMain.handle('terminal:spawn', (event, options) => {
     cols: Math.max(1, Math.floor(options?.cols) || 80),
     rows: Math.max(1, Math.floor(options?.rows) || 24),
     cwd: options?.cwd || process.cwd(),
+    target: options?.target,
   });
   return true;
 });

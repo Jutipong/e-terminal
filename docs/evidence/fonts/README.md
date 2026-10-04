@@ -4,29 +4,32 @@
 รันซ้ำได้ด้วย `node scripts/font-lab.mjs` (สคริปต์จะสลับ `--terminal-font-family` ใน
 `src/renderer/style.css`, build ใหม่ แล้วถ่ายภาพ)
 
+ไทยเป็นฟอนต์ **proportional** ไม่ใช่ monospace ตัวไหนเป็นตัวแรกจึงไม่มีผลกับไทย
+Chromium จะ fallback ต่ออัตโนมัติตาม codepoint สิ่งที่ต่างกันจริงคือ *ตัวที่ fallback ไปใช้*
+และผลกับ ASCII art / box-drawing ของ TUI
+
 | # | ฟอนต์ | ผลจากการมองจริง | ภาพ |
 |---|-------|----------------|-----|
-| a | Cascadia Mono + Noto Sans Thai | สระ/วรรณยุกต์ซ้อนถูกตำแหน่ง ไม่ซ้อนกัน ตัวเลขไทย ๐-๙ ปกติ | [a-cascadia-noto.png](a-cascadia-noto.png) / [ซูม](a-cascadia-noto-zoom.png) |
-| b | Cascadia Mono + Sarabun | ถูกต้องเช่นกัน รูปทรงตัวอักษรหนาแน่นกว่า Noto | [b-cascadia-sarabun.png](b-cascadia-sarabun.png) / [ซูม](b-cascadia-sarabun-zoom.png) |
-| c | Cascadia Mono + IBM Plex Sans Thai | ถูกต้อง แต่ปลายสระ/หัวอักษรบางกว่า Noto เล็กน้อย | [c-cascadia-plex.png](c-cascadia-plex.png) / [ซูม](c-cascadia-plex-zoom.png) |
-| d | **Noto Sans Mono + Noto Sans Thai** | **ถูกต้องเหมือน a แต่เป็นฟอนต์ที่ฝังมาทั้งสองตัว** | [d-notomono-noto.png](d-notomono-noto.png) / [ซูม](d-notomono-noto-zoom.png) |
+| a | **Cascadia Mono → Leelawadee UI** | ไทยอ่านออก สระ/วรรณยุกต์ทับฐานถูกตำแหน่ง กรอบ `-` ต่อกันสนิท | [a-cascadia-leelawadee.png](a-cascadia-leelawadee.png) / [ซูม](a-cascadia-leelawadee-zoom.png) |
+| b | JetBrains Mono → Leelawadee UI | อ่านไทยได้ ตัวเรียวกว่า Cascadia | [b-jetbrains-leelawadee.png](b-jetbrains-leelawadee.png) / [ซูม](b-jetbrains-leelawadee-zoom.png) |
+| c | Consolas → Leelawadee UI | อ่านไทยได้ เข้มและกว้างกว่า | [c-consolas-leelawadee.png](c-consolas-leelawadee.png) / [ซูม](c-consolas-leelawadee-zoom.png) |
+| d | Leelawadee UI → Cascadia Mono | ไทยกินพื้นที่กว้าง อักษรละติน/เครื่องหมายถูกเว้นห่างจน ASCII art แตกกริด | [d-leelawadee-cascadia.png](d-leelawadee-cascadia.png) / [ซูม](d-leelawadee-cascadia-zoom.png) |
 
 ## ข้อสรุป
 
-เลือก **d — Noto Sans Mono + Noto Sans Thai** เพราะ:
+เลือก **a — `'Cascadia Mono', 'Leelawadee UI', monospace`** เพราะ:
 
-1. คุณภาพการเรนเดอร์สระ/วรรณยุกต์เท่ากับตัว a (ซึ่งผ่านเกณฑ์ได้ดีที่สุด)
-2. **ฝังฟอนต์มาทั้งคู่** จึงได้ผลเหมือนกันทุกเครื่อง ไม่ต้องพึ่งฟอนต์ระบบ
-   (ตัว a ใช้ Cascadia Mono ที่ติดมากับ Windows เครื่องนี้เท่านั้น)
-3. ตัวเลขไทย ๐-๙ และอักษรไทยทุกตัวมี glyph ครบ ไม่มี tofu
+1. `Cascadia Mono` (monospace, มากับ Windows) รับผิดชอบละติน ASCII และ box-drawing
+   จึงไม่หลุดกริด เหลือแต่ codepoint ที่ Cascadia ไม่มี (คือภาษาไทย) ที่ fallback ไป
+   `Leelawadee UI` (ฟอนต์ไทยที่ Windows มาพร้อมเครื่อง)
+2. สลับลำดับเป็น d จะเห็นชัดว่า ASCII art ของ `opencode` เสียทันที ดังนั้นลำดับสำคัญ
+3. ผลขึ้นกับเครื่อง — ถ้าไม่มี `Leelawadee UI` ให้เปลี่ยนเป็น `'Noto Sans Thai'` หรือ `'Tahoma'`
 
-## ปัญหาที่เจอระหว่างทาง (สำคัญมาก)
+## หมายเหตุ
 
-1. **ต้องใช้ canvas renderer** — DOM renderer ของ xterm.js คูณ `letter-spacing`
-   ตามความกว้างจริงของ glyph เพื่อยัดลงช่อง ซึ่งชดเชยไม่ได้พอดีสำหรับฟอนต์ไทยที่ไม่ monospace
-   ทำให้เกิด column drift สูงสุด ~1.2 คอลัมน์ต่อบรรทัด (`@xterm/addon-canvas`)
-2. **ต้องรอให้ฟอนต์เว็บโหลดเสร็จก่อนสร้าง `Terminal`** — xterm.js วัดความกว้างตัวอักษร
-   ครั้งเดียวแล้วแคชไว้ ถ้าวัดก่อนฟอนต์มา ค่าจะผิด
-3. **`<link rel="stylesheet">` ของ Vite อยู่หลัง `<script type="module">`** ทำให้สคริปต์
-   รันก่อน `@font-face` ถูกลงทะเบียน ต้องรอให้ stylesheet โหลดเสร็จก่อนเรียก `document.fonts.load()`
-4. **`getComputedStyle` คืนชื่อฟอนต์ที่อ้างด้วยเครื่องหมายคำพูด** ต้องรองรับทั้ง `'` และ `"`
+- ก่อนหน้านี้โปรเจกต์ฝัง webfont (`Noto Sans Mono` + `Noto Sans Thai` ผ่าน `@fontsource/*`)
+  มาใช้ แต่ตอนนี้เลิกฝังแล้วเพราะผลของมันแย่กว่าเมื่อเทียบกับ `Leelawadee UI`
+  ภาพชุดเดิม `*-noto.png` / `*-sarabun.png` / `*-plex.png` เก็บไว้เป็นภาพจากรอบนั้น
+  ไม่ได้ใช้อ้างอิงแล้ว
+- ตัว renderer ที่ใช้อยู่ตอนนี้คือ DOM renderer ของ `@xterm/xterm@6` ซึ่งให้เบราว์เซอร์จัดรูปแบบ
+  ภาษาไทยเอง (GPOS) สระ/วรรณยุกต์จึงวางทับฐานถูกตำแหน่ง ไม่ต้องพึ่งฟอนต์พิเศษ

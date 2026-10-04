@@ -1,6 +1,9 @@
-// ตรวจ column alignment ของข้อความไทยแบบตัวเลข โดยอ่านพิกเซลจาก canvas ของ xterm
-// ทุกบรรทัดที่ชุดทดสอบสร้างมามีจำนวนคอลัมน์ตามที่คาดไว้เท่ากันหมด
-// วัดหมุดที่ "ขอมขวาของหมึ่งในบรรทัด" แล้วเทียบกับจำนวนคอลัมน์ที่คำนวณจากข้อความใน buffer
+// ตรวจ column alignment ของข้อความไทยแบบตัวเลข โดยเทียบตำแหน่งที่ DOM renderer วางจริง
+// กับจำนวนคอลัมน์ที่คำนวณจากข้อความใน buffer
+//
+// xterm 6 ไม่มี canvas renderer แล้ว จึงไม่อ่านพิกเซลจาก canvas ได้
+// วิธีวัดแทนคือวัดขอบขวาของ span ตัวสุดท้ายในแต่ละแถว ซึ่งคือระยะที่ browser เดินไปจริง
+// ถ้า xterm คิด letter-spacing ผิด ขอบขวาจะไม่ตรงกับจำนวนคอลัมน์ที่ควรเป็น
 import { launchApp, sleep } from './cdp.mjs';
 
 const TOLERANCE_CELLS = 0.05;
@@ -28,49 +31,36 @@ await app.type('powershell -NoProfile -ExecutionPolicy Bypass -File scripts/thai
 await app.enter();
 await sleep(4000);
 
+// ถ่ายภาพก่อน เพราะตอนที่หน้าต่างไม่ได้โฟกัส Chromium จะหยุดเรียก requestAnimationFrame
+// แถวใน DOM จึงยังไม่ถูกวาดจนกว่าจะมีการ capture เฟรมสักครั้ง
+await app.shot('docs/evidence/shell/05-thai-alignment.png');
+
 const raw = await app.evaluate(`(() => {
   const term = window.__terminal;
   if (!term) return JSON.stringify({ error: 'ไม่พบ window.__terminal' });
-  const canvas = document.querySelector('.xterm canvas');
-  if (!canvas) return JSON.stringify({ error: 'ไม่พบ canvas' });
+  const rowsElement = document.querySelector('.xterm-rows');
+  if (!rowsElement) return JSON.stringify({ error: 'ไม่พบ .xterm-rows — DOM renderer ไม่ทำงาน' });
 
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
-  const cellWidth = (rect.width / term.cols) * scaleX;
-  const cellHeight = (rect.height / term.rows) * scaleY;
-  const ctx = canvas.getContext('2d');
-
+  const cellWidth = term._core._renderService.dimensions.css.cell.width;
   const buffer = term.buffer.active;
   const lines = [];
-  for (let y = 0; y < buffer.length; y++) {
-    const line = buffer.getLine(y);
+  for (let i = 0; i < term.rows; i++) {
+    const line = buffer.getLine(buffer.viewportY + i);
     if (!line) continue;
     const text = line.translateToString(true).trimEnd();
     if (!text.endsWith('|')) continue;
 
-    const top = Math.round(y * cellHeight);
-    const bottom = Math.min(canvas.height, Math.round((y + 1) * cellHeight));
-    const image = ctx.getImageData(0, top, canvas.width, Math.max(1, bottom - top)).data;
-    let rightMost = -1;
-    for (let x = canvas.width - 1; x >= 0; x--) {
-      let inked = false;
-      for (let py = 0; py < bottom - top; py++) {
-        const offset = (py * canvas.width + x) * 4;
-        // พื้นหลังธีมคือ #0c0c0c
-        if (Math.abs(image[offset] - 12) > 24 || Math.abs(image[offset + 1] - 12) > 24 || Math.abs(image[offset + 2] - 12) > 24) {
-          inked = true;
-          break;
-        }
-      }
-      if (inked) {
-        rightMost = x;
-        break;
-      }
-    }
-    lines.push({ text, renderedColumns: rightMost < 0 ? 0 : (rightMost + 1) / cellWidth });
+    const rowElement = rowsElement.children[i];
+    if (!rowElement) continue;
+    // ช่องที่ใส่เคอร์เซอร์ไม่ใช่เนื้อหาของบรรทัด จึงไม่นับ
+    const spans = [...rowElement.children].filter((span) => !span.classList.contains('xterm-cursor'));
+    const last = spans[spans.length - 1];
+    if (!last) continue;
+
+    const rowLeft = rowElement.getBoundingClientRect().left;
+    lines.push({ text, renderedColumns: (last.getBoundingClientRect().right - rowLeft) / cellWidth });
   }
-  return JSON.stringify({ cellWidth, cellHeight, lines });
+  return JSON.stringify({ cellWidth, lines });
 })()`);
 
 const payload = JSON.parse(raw);
@@ -82,16 +72,18 @@ if (payload.error) {
 
 const { cellWidth, lines } = payload;
 
-// ขอมขวาของหมึ่ง "|" ไม่ได้ชนขอบช่องพอดี ทำให้ทุกบรรทัดคลาดเท่ากันเป็นค่าคงที่
-// จึงใช้บรรทัด ASCII ล้วนเป็นจุดอ้างอิงแล้วหักค่าคงที่นั้นออก
+// ความกว้าง cell ที่ xterm คำนวณได้คลาดจากความกว้างจริงของ glyph ประมาณ 0.06 คอลัมน์
+// (วัดจากกรอบ span ซึ่งรวม letter-spacing ท้ายบรรทัด ต่างจากการวัดหมึกของตัวอักษรแบบเดิม)
+// ค่านี้เกิดกับทั้งบรรทัด ASCII จึงใช้บรรทัด ASCII เป็นจุดอ้างอิงแล้วหักออกเหมือนเดิม
+// เหลือเฉพาะส่วนที่ภาษาไทยทำให้เกินซึ่งคือสิ่งที่ต้องการตรวจ
 const isAsciiOnly = (text) => [...text].every((character) => character.codePointAt(0) < 0x80);
 const reference = lines.filter((line) => isAsciiOnly(line.text));
 const calibration =
   reference.reduce((sum, line) => sum + (line.renderedColumns - expectedColumns(line.text)), 0) /
   reference.length;
 
-console.log(`cell width = ${cellWidth.toFixed(3)} px (device pixels)`);
-console.log(`อ้างอิงจากบรรทัด ASCII ล้วน ${reference.length} บรรทัด (offset ${calibration.toFixed(3)} คอลัมน์)`);
+console.log(`cell width = ${cellWidth.toFixed(3)} px`);
+console.log(`อ้างอิงจากบรรทัด ASCII ล้วน ${reference.length} บรรทัด (offset ${calibration.toFixed(4)} คอลัมน์)`);
 console.log(`ตรวจ ${lines.length} บรรทัด (ยอมให้คลาดเคลื่อน ${TOLERANCE_CELLS} คอลัมน์)\n`);
 
 let worst = 0;
@@ -115,7 +107,6 @@ console.log(
 );
 console.log('console errors:', JSON.stringify(app.consoleErrors));
 
-await app.shot('docs/evidence/shell/05-thai-alignment.png');
 await app.close();
 
 process.exit(failed === 0 ? 0 : 1);

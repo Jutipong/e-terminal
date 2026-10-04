@@ -1,5 +1,6 @@
-// เปรียบเทียบฟอนต์ไทย: เขียน --terminal-font-family ลง style.css, build ใหม่, รันชุดทดสอบ
+// เปรียบเทียบฟอนต์ระบบ: เขียน --terminal-font-family ลง style.css, build ใหม่, รันชุดทดสอบ
 // แล้วบันทึก screenshot ของข้อความชุดเดียวกันไว้เทียบกัน
+// (ไทยเป็นฟอนต์ proportional จึงไม่มี monospace ไหนครอบได้ สิ่งที่ต่างกันคือฟอนต์ที่ fallback ไปใช้)
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -8,10 +9,10 @@ import { launchApp, sleep, projectRoot } from './cdp.mjs';
 const VITE_BIN = resolve(projectRoot, 'node_modules/vite/bin/vite.js');
 
 const CANDIDATES = [
-  { id: 'a-cascadia-noto', family: "'Cascadia Mono', 'Noto Sans Thai', monospace" },
-  { id: 'b-cascadia-sarabun', family: "'Cascadia Mono', 'Sarabun', monospace" },
-  { id: 'c-cascadia-plex', family: "'Cascadia Mono', 'IBM Plex Sans Thai', monospace" },
-  { id: 'd-notomono-noto', family: "'Noto Sans Mono', 'Noto Sans Thai', monospace" },
+  { id: 'a-cascadia-leelawadee', family: "'Cascadia Mono', 'Leelawadee UI', monospace" },
+  { id: 'b-jetbrains-leelawadee', family: "'JetBrains Mono', 'Leelawadee UI', monospace" },
+  { id: 'c-consolas-leelawadee', family: "Consolas, 'Leelawadee UI', monospace" },
+  { id: 'd-leelawadee-cascadia', family: "'Leelawadee UI', 'Cascadia Mono', monospace" },
 ];
 
 const stylePath = resolve(projectRoot, 'src/renderer/style.css');
